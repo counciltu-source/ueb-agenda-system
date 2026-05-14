@@ -1,0 +1,1387 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบเสนอระเบียบวาระการประชุมคณะกรรมการบริหารมหาวิทยาลัย</title>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={theme:{extend:{fontFamily:{prompt:['Prompt','sans-serif']}}}}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<style>
+/* ── CSS Variables (Teal Theme) ───────────────────────────────── */
+:root {
+  --primary-dark:   #0d3d37;
+  --primary-mid:    #0f766e;
+  --primary-light:  #14b8a6;
+  --primary-xlight: #ccfbf1;
+  --primary-pale:   #f0fdfa;
+  --primary-border: #99f6e4;
+  --accent:         #f59e0b;
+}
+
+/* ── Base ─────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+html { font-size: 16px; }
+body {
+  font-family: 'Prompt', sans-serif;
+  background: #f1f5f9;
+  color: #1e293b;
+  line-height: 1.6;
+}
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-thumb { background: #99f6e4; border-radius: 3px; }
+
+/* ── Loading Screen ───────────────────────────────────────────── */
+#loadingScreen {
+  position: fixed; inset: 0;
+  background: linear-gradient(135deg, #0a2e2a 0%, #134e4a 60%, #0f766e 100%);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 9999;
+  transition: opacity .6s ease, visibility .6s ease;
+}
+#loadingScreen.hide { opacity: 0; visibility: hidden; pointer-events: none; }
+#loadingScreen .load-title {
+  color: #fff; font-size: 1.1rem; font-weight: 500;
+  margin-bottom: 2.5rem; opacity: .85; letter-spacing: .05em;
+}
+#loadingScreen .load-sub {
+  color: rgba(255,255,255,.5); font-size: .85rem;
+  margin-top: 2rem; animation: pulse-text 1.8s ease-in-out infinite;
+}
+@keyframes pulse-text { 0%,100%{opacity:.4} 50%{opacity:.9} }
+
+.ball {
+  position: relative;
+  bottom: 50px;
+  left: calc(100% - 20px);
+  width: 50px; height: 50px;
+  background: #fff;
+  border-radius: 50%;
+  animation: ball-move8234 3s ease-in-out 0.3s infinite alternate;
+  box-shadow: 0 4px 20px rgba(0,0,0,.2);
+}
+.ball::after {
+  position: absolute; content: '';
+  top: 25px; right: 8px;
+  width: 6px; height: 6px;
+  background: #0d3d37; border-radius: 50%;
+}
+.bar {
+  width: 220px; height: 14px;
+  background: #99f6e4;
+  border-radius: 30px;
+  transform: rotate(-15deg);
+  animation: up-down6123 3s ease-in-out 0.3s infinite alternate;
+  box-shadow: 0 4px 16px rgba(153,246,228,.4);
+}
+@keyframes up-down6123 {
+  from { transform: rotate(-15deg); }
+  to   { transform: rotate(15deg); }
+}
+@keyframes ball-move8234 {
+  from { left: calc(100% - 40px); transform: rotate(360deg); }
+  to   { left: calc(0% - 20px);   transform: rotate(0deg); }
+}
+
+/* ── Animations ───────────────────────────────────────────────── */
+.fade-in      { animation: fadeIn .4s ease forwards; }
+.slide-up     { animation: slideUp .4s cubic-bezier(.16,1,.3,1) forwards; }
+.stagger-in   { opacity: 0; animation: slideUp .45s cubic-bezier(.16,1,.3,1) forwards; }
+
+@keyframes fadeIn  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+@keyframes slideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:none} }
+
+/* ── Cards ────────────────────────────────────────────────────── */
+.section-card {
+  background: #fff;
+  border-radius: 1.25rem;
+  box-shadow: 0 2px 12px rgba(0,0,0,.06);
+  border: 1px solid #e2e8f0;
+  transition: box-shadow .25s ease, transform .25s ease;
+}
+.section-card:hover { box-shadow: 0 6px 24px rgba(0,0,0,.1); }
+
+.result-card {
+  border: 1px solid #e2e8f0; border-radius: 1rem;
+  overflow: hidden; margin-bottom: 1rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,.05);
+  transition: box-shadow .25s, transform .25s;
+}
+.result-card:hover { box-shadow: 0 8px 28px rgba(0,0,0,.1); transform: translateY(-2px); }
+
+.topic-item {
+  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: .85rem;
+  padding: 1rem 1.1rem;
+  transition: box-shadow .2s, transform .2s;
+}
+.topic-item:hover { box-shadow: 0 4px 16px rgba(0,0,0,.08); transform: translateY(-1px); }
+
+/* ── Nav Tabs ─────────────────────────────────────────────────── */
+.nav-tab {
+  position: relative; padding: .85rem 1.4rem;
+  font-size: 1rem; color: #64748b; cursor: pointer;
+  border: none; background: none;
+  font-family: 'Prompt', sans-serif;
+  transition: color .2s;
+  white-space: nowrap;
+}
+.nav-tab::after {
+  content: ''; position: absolute;
+  bottom: 0; left: 50%; right: 50%;
+  height: 2.5px; background: var(--primary-mid);
+  border-radius: 2px 2px 0 0;
+  transition: left .25s ease, right .25s ease;
+}
+.nav-tab:hover { color: var(--primary-mid); }
+.nav-tab.active { color: var(--primary-mid); font-weight: 600; }
+.nav-tab.active::after { left: 8px; right: 8px; }
+
+/* ── Form Inputs ──────────────────────────────────────────────── */
+.form-input {
+  width: 100%;
+  padding: .75rem 1rem;
+  font-size: 1rem;
+  font-family: 'Prompt', sans-serif;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: .7rem;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s, background .2s;
+  color: #1e293b;
+}
+.form-input:hover  { border-color: var(--primary-border); }
+.form-input:focus  {
+  border-color: var(--primary-light);
+  box-shadow: 0 0 0 4px rgba(20,184,166,.14);
+  background: #fff;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: .45rem;
+  padding: .65rem 1.25rem;
+  font-size: .95rem; font-weight: 500;
+  font-family: 'Prompt', sans-serif;
+  border: none; border-radius: .7rem; cursor: pointer;
+  transition: all .18s cubic-bezier(.4,0,.2,1);
+  position: relative; overflow: hidden;
+}
+.btn::after {
+  content: ''; position: absolute; inset: 0;
+  background: rgba(255,255,255,.15); opacity: 0;
+  transition: opacity .15s;
+}
+.btn:hover::after   { opacity: 1; }
+.btn:active { transform: scale(.97); }
+.btn-primary { background: var(--primary-mid); color: #fff; box-shadow: 0 2px 8px rgba(15,118,110,.3); }
+.btn-primary:hover  { background: var(--primary-dark); box-shadow: 0 4px 14px rgba(15,118,110,.4); transform: translateY(-1px); }
+.btn-success { background: #16a34a; color: #fff; box-shadow: 0 2px 8px rgba(22,163,74,.3); }
+.btn-success:hover  { background: #15803d; box-shadow: 0 4px 14px rgba(22,163,74,.4); transform: translateY(-1px); }
+.btn-amber   { background: #d97706; color: #fff; box-shadow: 0 2px 8px rgba(217,119,6,.3); }
+.btn-amber:hover    { background: #b45309; box-shadow: 0 4px 14px rgba(217,119,6,.4); transform: translateY(-1px); }
+.btn-ghost   { background: #f1f5f9; color: #475569; border: 1.5px solid #e2e8f0; }
+.btn-ghost:hover    { background: #e2e8f0; border-color: #cbd5e1; transform: translateY(-1px); }
+.btn-sm { padding: .45rem .9rem; font-size: .85rem; }
+
+/* ── Round Chips ──────────────────────────────────────────────── */
+.round-chip {
+  padding: .55rem 1.2rem; border-radius: 2rem;
+  border: 1.5px solid #e2e8f0; cursor: pointer;
+  font-size: .9rem; transition: all .2s;
+  background: #fff; color: #64748b;
+}
+.round-chip:hover   { border-color: var(--primary-border); color: var(--primary-mid); background: var(--primary-pale); transform: translateY(-1px); }
+.round-chip.selected { background: var(--primary-mid); color: #fff; border-color: var(--primary-mid); box-shadow: 0 2px 10px rgba(15,118,110,.3); }
+
+/* ── Topic Chips ──────────────────────────────────────────────── */
+.topic-chip {
+  display: flex; align-items: center; gap: 8px;
+  animation: chipIn .25s cubic-bezier(.16,1,.3,1);
+}
+@keyframes chipIn { from{opacity:0;transform:translateX(-12px)} to{opacity:1;transform:none} }
+.topic-chip input { flex: 1; }
+.remove-btn {
+  width: 2rem; height: 2rem; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  border: none; background: none; cursor: pointer; border-radius: .5rem;
+  color: #f87171; transition: all .15s;
+}
+.remove-btn:hover { background: #fef2f2; color: #dc2626; transform: scale(1.1); }
+
+/* ── Stepper ──────────────────────────────────────────────────── */
+.step-dot {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 600; flex-shrink: 0;
+  transition: all .3s;
+}
+.step-dot.done    { background: #16a34a; color: #fff; }
+.step-dot.current { background: var(--primary-mid); color: #fff; box-shadow: 0 0 0 5px rgba(15,118,110,.2); animation: pulse-step 2s infinite; }
+.step-dot.pending { background: #f1f5f9; color: #94a3b8; border: 1.5px solid #e2e8f0; }
+@keyframes pulse-step { 0%,100%{box-shadow:0 0 0 5px rgba(15,118,110,.2)} 50%{box-shadow:0 0 0 8px rgba(15,118,110,.1)} }
+.step-line { flex: 1; height: 2.5px; border-radius: 2px; transition: background .5s; }
+.step-line.done    { background: #16a34a; }
+.step-line.pending { background: #e2e8f0; }
+
+/* ── Tags ─────────────────────────────────────────────────────── */
+.tag {
+  display: inline-block; padding: .25rem .7rem;
+  border-radius: 1rem; font-size: .78rem; font-weight: 500;
+}
+.tag-teal   { background: var(--primary-pale); color: var(--primary-dark); }
+.tag-green  { background: #f0fdf4; color: #166534; }
+.tag-red    { background: #fef2f2; color: #991b1b; }
+.tag-gray   { background: #f8fafc; color: #475569; }
+
+/* ── Admin Nav ────────────────────────────────────────────────── */
+.admin-nav-item {
+  padding: .65rem 1rem; border-radius: .65rem;
+  font-size: .9rem; cursor: pointer; color: #64748b;
+  display: flex; align-items: center; gap: .6rem;
+  transition: all .15s; border: none; background: none;
+  font-family: 'Prompt', sans-serif; text-align: left; width: 100%;
+}
+.admin-nav-item:hover  { background: #f1f5f9; color: #334155; transform: translateX(2px); }
+.admin-nav-item.active { background: var(--primary-pale); color: var(--primary-mid); font-weight: 600; }
+
+/* ── Stat Cards ───────────────────────────────────────────────── */
+.stat-card {
+  background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: .85rem;
+  padding: 1.2rem; text-align: center;
+  transition: all .2s;
+}
+.stat-card:hover { border-color: var(--primary-border); background: var(--primary-pale); transform: translateY(-2px); box-shadow: 0 4px 14px rgba(0,0,0,.07); }
+
+/* ── Modal ────────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(15,23,42,.5);
+  backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999; animation: fadeIn .2s ease;
+}
+.modal-box {
+  background: #fff; border-radius: 1.25rem;
+  box-shadow: 0 20px 60px rgba(0,0,0,.2);
+  padding: 1.75rem; width: 100%; max-width: 400px; margin: 1rem;
+  animation: slideUp .3s cubic-bezier(.16,1,.3,1);
+}
+
+/* ── Toggle ───────────────────────────────────────────────────── */
+.toggle-track {
+  width: 2.75rem; height: 1.5rem; border-radius: 1rem;
+  border: 1.5px solid #e2e8f0; background: #e2e8f0;
+  cursor: pointer; position: relative;
+  transition: background .25s, border-color .25s;
+  flex-shrink: 0;
+}
+.toggle-track.on  { background: var(--primary-mid); border-color: var(--primary-mid); }
+.toggle-knob {
+  position: absolute; top: .15rem; left: .15rem;
+  width: 1.1rem; height: 1.1rem; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.2);
+  transition: transform .25s cubic-bezier(.4,0,.2,1);
+}
+.toggle-track.on .toggle-knob { transform: translateX(1.25rem); }
+
+/* ── Misc ─────────────────────────────────────────────────────── */
+.section-title {
+  font-size: 1.15rem; font-weight: 600; color: #1e293b;
+  display: flex; align-items: center; gap: .5rem;
+}
+.form-label {
+  display: block; font-size: .9rem; font-weight: 500; color: #475569; margin-bottom: .45rem;
+}
+#footerClickArea { cursor: default; user-select: none; }
+
+.info-row {
+  display: flex; gap: .75rem; align-items: flex-start; padding: .4rem 0;
+}
+.info-row-key { color: #94a3b8; font-size: .9rem; width: 6.5rem; flex-shrink: 0; }
+.info-row-val { font-size: .95rem; color: #1e293b; font-weight: 500; }
+
+/* Agenda area hover */
+.agenda-area { transition: box-shadow .2s, transform .2s; }
+.agenda-area:hover { box-shadow: 0 4px 16px rgba(0,0,0,.07); }
+
+/* Shimmer skeleton */
+.skeleton {
+  background: linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: .5rem; height: 1rem;
+}
+@keyframes shimmer { to{background-position:-200% 0} }
+
+/* ── Header teal blob accents ────────────────────────────────── */
+.header-blob-1 {
+  background: radial-gradient(circle, #2dd4bf, transparent);
+}
+.header-blob-2 {
+  background: radial-gradient(circle, #99f6e4, transparent);
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════
+     LOADING SCREEN
+══════════════════════════════════════════════ -->
+<div id="loadingScreen">
+  <p class="load-title"><i class="fa-solid fa-gavel mr-2"></i>ระบบเสนอระเบียบวาระ</p>
+  <div class="bar"><div class="ball"></div></div>
+  <p class="load-sub">กำลังโหลดข้อมูล...</p>
+</div>
+
+<script src="config.js"></script>
+<script>
+const SHOW_ADMIN_MODE = new URLSearchParams(window.location.search).get('admin') === '1' ? 'true' : 'false';
+</script>
+
+<!-- Banner: ปิดรับ -->
+<div id="systemClosedBanner" class="hidden sticky top-0 z-50 bg-red-600 text-white text-center py-3 px-4 font-medium" style="font-size:1rem">
+  <i class="fa-solid fa-triangle-exclamation mr-2"></i>ขณะนี้ปิดรับการเสนอวาระชั่วคราว — กรุณาติดต่อสำนักงานสภามหาวิทยาลัย
+</div>
+
+<!-- ══════════════════════════════════════════════
+     HEADER
+══════════════════════════════════════════════ -->
+<header class="relative overflow-hidden pt-12 pb-28 px-4 text-white"
+        style="background:linear-gradient(135deg,#0a2e2a 0%,#134e4a 45%,#0f766e 100%)">
+  <!-- Decorative blobs -->
+  <div class="header-blob-1 absolute top-0 right-0 w-72 h-72 rounded-full opacity-10 pointer-events-none"
+       style="transform:translate(30%,-30%)"></div>
+  <div class="header-blob-2 absolute bottom-0 left-0 w-56 h-56 rounded-full opacity-10 pointer-events-none"
+       style="transform:translate(-30%,30%)"></div>
+
+  <div class="max-w-4xl mx-auto text-center relative z-10">
+    <p style="color:#5eead4;font-size:.85rem;margin-bottom:.5rem;letter-spacing:.15em;text-transform:uppercase;font-weight:500">สำนักงานสภามหาวิทยาลัย</p>
+    <h1 class="font-semibold drop-shadow" style="font-size:clamp(1.5rem,4vw,2.25rem)">
+      <i class="fa-solid fa-gavel mr-2 opacity-80"></i>ระบบเสนอระเบียบวาระการประชุม
+    </h1>
+    <p style="color:#99f6e4;margin-top:.25rem;font-size:.95rem">มหาวิทยาลัยธรรมศาสตร์</p>
+
+    <div class="mt-6 flex flex-wrap justify-center gap-2">
+      <a href="https://council.tu.ac.th/" target="_blank"
+         class="border px-4 py-2 rounded-full text-sm transition flex items-center gap-2 hover:-translate-y-0.5 duration-200"
+         style="background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.2)">
+        <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>เว็บไซต์สำนักงานสภาฯ
+      </a>
+      <a href="https://council.tu.ac.th/portals/" target="_blank"
+         class="border px-4 py-2 rounded-full text-sm transition flex items-center gap-2 hover:-translate-y-0.5 duration-200"
+         style="background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.2)">
+        <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>ศูนย์รวมระบบสารสนเทศ
+      </a>
+    </div>
+  </div>
+</header>
+
+<!-- ══════════════════════════════════════════════
+     MAIN
+══════════════════════════════════════════════ -->
+<main class="max-w-4xl mx-auto px-4 -mt-16 relative z-20 pb-20">
+
+  <!-- Info Card -->
+  <div class="section-card p-5 mb-5 fade-in">
+    <div class="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+      <div class="text-white w-8 h-8 rounded-xl flex items-center justify-center" style="background:var(--primary-mid)">
+        <i class="fa-regular fa-calendar-check"></i>
+      </div>
+      <h3 class="font-semibold" style="font-size:1.05rem;color:var(--primary-dark)">ข้อมูลการประชุมปัจจุบัน</h3>
+    </div>
+    <div id="infoCardContent">
+      <div class="space-y-2.5">
+        <div class="skeleton w-3/4"></div>
+        <div class="skeleton w-1/2"></div>
+        <div class="skeleton w-2/3"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Nav -->
+  <nav class="bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center px-2 mb-7 overflow-x-auto">
+    <button onclick="showSection('form',this)"   class="nav-tab active">
+      <i class="fa-solid fa-paper-plane mr-2"></i>เสนอวาระ
+    </button>
+    <button onclick="showSection('status',this)" class="nav-tab">
+      <i class="fa-solid fa-magnifying-glass mr-2"></i>ตรวจสอบสถานะ
+    </button>
+    <button id="adminTab" onclick="showSection('admin',this)" class="nav-tab hidden">
+      <i class="fa-solid fa-shield-halved mr-2"></i>ผู้ดูแล
+    </button>
+  </nav>
+
+  <!-- ════════════ SECTION: FORM ════════════ -->
+  <section id="sectionForm" class="fade-in">
+    <div class="section-card overflow-hidden">
+
+      <div class="px-7 py-5 border-b flex justify-between items-center"
+           style="background:linear-gradient(135deg,var(--primary-pale),var(--primary-xlight));border-color:#a7f3d0">
+        <h2 class="font-semibold" style="font-size:1.15rem;color:var(--primary-dark)">
+          <i class="fa-solid fa-pen-to-square mr-2 opacity-70"></i>ฟอร์มเสนอระเบียบวาระ
+        </h2>
+        <div class="bg-white rounded-xl px-4 py-2 text-center shadow-sm" style="border:1px solid var(--primary-border)">
+          <div style="font-size:.7rem;color:#94a3b8;letter-spacing:.08em;text-transform:uppercase">ครั้งที่</div>
+          <div id="meetingDisplay" class="font-bold" style="font-size:1.35rem;color:var(--primary-mid)">—</div>
+        </div>
+      </div>
+
+      <div class="p-7">
+        <form id="mainForm" class="space-y-7" novalidate>
+
+          <!-- Round Selector -->
+          <div>
+            <p class="form-label"><i class="fa-solid fa-calendar-days mr-1.5" style="color:var(--primary-light)"></i>เลือกรอบการประชุมที่ต้องการเสนอ</p>
+            <div id="roundSelector" class="flex flex-wrap gap-2"></div>
+            <input type="hidden" id="selectedRound" name="meetingRound">
+          </div>
+
+          <hr class="border-dashed border-slate-200">
+
+          <!-- Personal Info -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label class="form-label"><i class="fa-solid fa-user mr-1.5" style="color:var(--primary-light)"></i>ชื่อ-นามสกุล <span class="text-red-500">*</span></label>
+              <input name="name" required class="form-input" placeholder="ชื่อ-นามสกุล">
+            </div>
+            <div>
+              <label class="form-label"><i class="fa-solid fa-phone mr-1.5" style="color:var(--primary-light)"></i>เบอร์ติดต่อ <span class="text-red-500">*</span></label>
+              <input name="phone" required type="tel"
+                     oninput="this.value=this.value.replace(/[^0-9\-]/g,'')"
+                     class="form-input" placeholder="เบอร์ที่ใช้ตรวจสอบสถานะภายหลัง">
+            </div>
+            <div>
+              <label class="form-label">
+                <i class="fa-solid fa-envelope mr-1.5" style="color:var(--primary-light)"></i>อีเมล
+                <span style="font-size:.8rem;color:#94a3b8;font-weight:400"> — รับแจ้งเตือนอัตโนมัติ</span>
+              </label>
+              <input name="email" type="email" class="form-input" placeholder="email@domain.com">
+            </div>
+            <div>
+              <label class="form-label"><i class="fa-solid fa-id-badge mr-1.5" style="color:var(--primary-light)"></i>ตำแหน่ง</label>
+              <input name="position" class="form-input" placeholder="เช่น นักวิชาการพัสดุ">
+            </div>
+            <div class="md:col-span-2">
+              <label class="form-label"><i class="fa-solid fa-sitemap mr-1.5" style="color:var(--primary-light)"></i>หน่วยงาน <span class="text-red-500">*</span></label>
+              <input name="department" required class="form-input" placeholder="เช่น กองคลัง, งานพิจารณาตำแหน่งทางวิชาการ">
+            </div>
+          </div>
+
+          <hr class="border-dashed border-slate-200">
+
+          <!-- Agenda Sections -->
+          <div class="space-y-4">
+
+            <div class="agenda-area rounded-2xl border overflow-hidden" style="border-color:#a5f3fc;background:#ecfeff20">
+              <div class="flex justify-between items-center px-5 py-3.5 border-b" style="border-color:#a5f3fc;background:#cffafe60">
+                <span class="font-semibold" style="font-size:.95rem;color:#164e63">
+                  <i class="fa-solid fa-clipboard-check mr-2" style="color:#0891b2"></i>ระเบียบวาระเพื่อพิจารณา
+                </span>
+                <button type="button" onclick="addField('consider')"
+                        class="btn btn-sm" style="background:#cffafe;color:#155e75;font-size:.82rem">
+                  <i class="fa-solid fa-plus"></i>เพิ่มวาระ
+                </button>
+              </div>
+              <div id="consider" class="p-4 space-y-2"></div>
+            </div>
+
+            <div class="agenda-area rounded-2xl border border-emerald-100 overflow-hidden">
+              <div class="flex justify-between items-center px-5 py-3.5 border-b border-emerald-100 bg-emerald-50/60">
+                <span class="font-semibold text-emerald-900" style="font-size:.95rem">
+                  <i class="fa-solid fa-circle-info mr-2 text-emerald-400"></i>ระเบียบวาระเพื่อทราบ
+                </span>
+                <button type="button" onclick="addField('acknowledge')"
+                        class="btn btn-sm" style="background:#d1fae5;color:#065f46;font-size:.82rem">
+                  <i class="fa-solid fa-plus"></i>เพิ่มวาระ
+                </button>
+              </div>
+              <div id="acknowledge" class="p-4 space-y-2"></div>
+            </div>
+
+            <div class="agenda-area rounded-2xl border border-red-100 overflow-hidden">
+              <div class="flex justify-between items-center px-5 py-3.5 border-b border-red-100 bg-red-50/60">
+                <span class="font-semibold text-red-900" style="font-size:.95rem">
+                  <i class="fa-solid fa-user-secret mr-2 text-red-400"></i>ระเบียบวาระลับ
+                </span>
+                <button type="button" onclick="addField('secret')"
+                        class="btn btn-sm" style="background:#fee2e2;color:#991b1b;font-size:.82rem">
+                  <i class="fa-solid fa-plus"></i>เพิ่มวาระ
+                </button>
+              </div>
+              <div id="secret" class="p-4 space-y-2"></div>
+            </div>
+
+            <div class="agenda-area rounded-2xl border border-slate-200 overflow-hidden">
+              <div class="flex justify-between items-center px-5 py-3.5 border-b border-slate-200 bg-slate-50">
+                <span class="font-semibold text-slate-700" style="font-size:.95rem">
+                  <i class="fa-solid fa-list-dots mr-2 text-slate-400"></i>อื่น ๆ
+                </span>
+                <button type="button" onclick="addField('other')"
+                        class="btn btn-sm" style="background:#e2e8f0;color:#475569;font-size:.82rem">
+                  <i class="fa-solid fa-plus"></i>เพิ่มวาระ
+                </button>
+              </div>
+              <div id="other" class="p-4 space-y-2"></div>
+            </div>
+
+          </div>
+
+          <!-- File URL (conditional) -->
+          <div id="fileUrlArea" class="hidden">
+            <label class="form-label"><i class="fa-solid fa-link mr-1.5" style="color:var(--primary-light)"></i>แนบไฟล์ (URL ลิงก์เอกสาร)</label>
+            <input name="fileUrl" class="form-input"
+                   placeholder="วางลิงก์ไฟล์ เช่น Google Drive, OneDrive, Dropbox หรือ URL อื่น ๆ">
+            <p style="font-size:.83rem;color:#94a3b8;margin-top:.35rem">กรณี Google Drive แนะนำให้ตั้งค่าแชร์เป็น "ทุกคนที่มีลิงก์"</p>
+          </div>
+
+          <!-- Notice -->
+          <div class="rounded-2xl border border-red-200 p-5 text-center" style="background:#fff5f5">
+            <p class="font-semibold text-red-600" style="font-size:1rem">
+              <i class="fa-solid fa-circle-exclamation mr-1.5"></i>กรุณาส่งเอกสาร บันทึก ใบปะหน้า และเอกสารแนบมาที่
+            </p>
+            <p class="text-red-500 mt-1" style="font-size:.95rem">สำนักงานสภามหาวิทยาลัย อาคารโดมบริหาร ชั้น 2 มธ. ศูนย์รังสิต</p>
+            <p class="text-red-400 mt-1" style="font-size:.85rem">พร้อมส่งไฟล์มาที่ <span class="underline font-medium">council.tu@tu.ac.th</span></p>
+          </div>
+
+          <!-- Submit -->
+          <button type="submit" id="submitBtn"
+                  class="w-full btn btn-primary justify-center rounded-2xl shadow-lg"
+                  style="padding:1rem 1.5rem;font-size:1.05rem">
+            <i class="fa-solid fa-paper-plane"></i>ยืนยันการส่งข้อมูล
+          </button>
+
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════ SECTION: STATUS ════════════ -->
+  <section id="sectionStatus" class="hidden fade-in">
+    <div class="section-card p-7">
+      <h2 class="section-title mb-6">
+        <div class="w-8 h-8 rounded-xl flex items-center justify-center" style="background:var(--primary-pale);color:var(--primary-mid)">
+          <i class="fa-solid fa-magnifying-glass text-sm"></i>
+        </div>
+        ตรวจสอบสถานะการเสนอวาระ
+      </h2>
+
+      <form id="checkForm" class="rounded-2xl p-6 mb-7 border border-slate-200" style="background:#f8fafc">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+          <div>
+            <label class="form-label">รหัสเอกสาร <span style="font-size:.82rem;color:#94a3b8;font-weight:400">(4 ตัวหลัง หรือรหัสเต็ม)</span></label>
+            <input name="trackingId" required class="form-input" style="font-family:monospace;letter-spacing:.12em;font-size:1.05rem"
+                   placeholder="เช่น 42 หรือ TU-68-0042">
+          </div>
+          <div>
+            <label class="form-label">เบอร์ติดต่อที่ลงทะเบียนไว้</label>
+            <input name="phone" required type="tel"
+                   oninput="this.value=this.value.replace(/[^0-9\-]/g,'')"
+                   class="form-input" placeholder="เบอร์โทร">
+          </div>
+        </div>
+        <div class="flex gap-3">
+          <button type="submit" id="checkBtn" class="flex-1 btn btn-primary justify-center">
+            <i class="fa-solid fa-magnifying-glass"></i>ค้นหา
+          </button>
+          <button type="button" onclick="resetStatus()" class="btn btn-ghost" title="ล้างค่า">
+            <i class="fa-solid fa-rotate-left"></i>
+          </button>
+        </div>
+      </form>
+
+      <div id="statusResult">
+        <div class="text-center py-14" style="color:#cbd5e1">
+          <i class="fa-regular fa-folder-open text-5xl block mb-3"></i>
+          <p style="font-size:1rem">กรอกรหัสและเบอร์โทรด้านบนเพื่อค้นหา</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════ SECTION: ADMIN ════════════ -->
+  <section id="sectionAdmin" class="hidden fade-in">
+    <div class="section-card overflow-hidden">
+
+      <!-- Login -->
+      <div id="adminLoginBox" class="p-10 max-w-sm mx-auto text-center">
+        <div class="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-5 text-3xl"
+             style="background:var(--primary-pale);color:var(--primary-mid);box-shadow:0 4px 20px rgba(15,118,110,.15)">
+          <i class="fa-solid fa-shield-halved"></i>
+        </div>
+        <h3 class="font-semibold text-slate-800 mb-6" style="font-size:1.2rem">เข้าสู่ระบบผู้ดูแล</h3>
+        <input id="adminUser" class="form-input mb-3" placeholder="Username">
+        <input id="adminPass" type="password" class="form-input mb-5" placeholder="Password"
+               onkeydown="if(event.key==='Enter')loginAdmin()">
+        <button onclick="loginAdmin()" class="w-full btn btn-primary justify-center py-3 rounded-xl" style="font-size:1rem">
+          เข้าสู่ระบบ
+        </button>
+      </div>
+
+      <!-- Admin Panel -->
+      <div id="adminPanel" class="hidden">
+        <div class="flex flex-col md:flex-row" style="min-height:620px">
+
+          <!-- Sidebar -->
+          <div class="md:w-48 bg-slate-50 border-b md:border-b-0 md:border-r border-slate-200 p-3 flex flex-row md:flex-col gap-1.5">
+            <button onclick="showAdminPane('dashboard')"  id="pane-btn-dashboard"  class="admin-nav-item active flex-1 md:flex-none">
+              <i class="fa-solid fa-chart-pie w-5 text-center"></i><span class="hidden md:inline">แดชบอร์ด</span>
+            </button>
+            <button onclick="showAdminPane('submissions')" id="pane-btn-submissions" class="admin-nav-item flex-1 md:flex-none">
+              <i class="fa-solid fa-list-check w-5 text-center"></i><span class="hidden md:inline">จัดการวาระ</span>
+            </button>
+            <button onclick="showAdminPane('settings')"   id="pane-btn-settings"   class="admin-nav-item flex-1 md:flex-none">
+              <i class="fa-solid fa-gear w-5 text-center"></i><span class="hidden md:inline">ตั้งค่า</span>
+            </button>
+            <button onclick="doLogout()" class="admin-nav-item flex-1 md:flex-none mt-auto" style="color:#f87171">
+              <i class="fa-solid fa-right-from-bracket w-5 text-center"></i><span class="hidden md:inline">ออกจากระบบ</span>
+            </button>
+          </div>
+
+          <!-- Pane -->
+          <div class="flex-1 p-6 overflow-x-hidden">
+
+            <!-- Dashboard -->
+            <div id="pane-dashboard">
+              <h3 class="font-semibold text-slate-700 mb-5" style="font-size:1.05rem">แดชบอร์ด</h3>
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                <div class="stat-card"><div class="font-bold text-slate-700" style="font-size:1.8rem" id="ds-total">—</div><div style="font-size:.82rem;color:#94a3b8;margin-top:.2rem">วาระทั้งหมด</div></div>
+                <div class="stat-card"><div class="font-bold text-amber-600"  style="font-size:1.8rem" id="ds-pending">—</div><div style="font-size:.82rem;color:#94a3b8;margin-top:.2rem">รอตรวจสอบ</div></div>
+                <div class="stat-card"><div class="font-bold" style="font-size:1.8rem;color:var(--primary-mid)" id="ds-inprogress">—</div><div style="font-size:.82rem;color:#94a3b8;margin-top:.2rem">กำลังดำเนินการ</div></div>
+                <div class="stat-card"><div class="font-bold text-emerald-600" style="font-size:1.8rem" id="ds-done">—</div><div style="font-size:.82rem;color:#94a3b8;margin-top:.2rem">จัดส่งแล้ว</div></div>
+              </div>
+              <button onclick="loadDashboard()" class="btn btn-ghost btn-sm">
+                <i class="fa-solid fa-rotate-right"></i>รีเฟรช
+              </button>
+            </div>
+
+            <!-- Submissions -->
+            <div id="pane-submissions" class="hidden">
+              <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+                <h3 class="font-semibold text-slate-700" style="font-size:1.05rem">จัดการวาระ</h3>
+                <div class="flex gap-2 items-center">
+                  <select id="filterRound" onchange="loadSubmissions()" class="form-input py-2 text-sm w-auto" style="width:auto">
+                    <option value="all">ทุกรอบ</option>
+                  </select>
+                  <button onclick="loadSubmissions()" class="btn btn-ghost btn-sm"><i class="fa-solid fa-rotate-right"></i></button>
+                </div>
+              </div>
+              <div id="submissionList" class="space-y-3">
+                <p class="text-center py-10" style="color:#94a3b8;font-size:.95rem">กำลังโหลด...</p>
+              </div>
+            </div>
+
+            <!-- Settings -->
+            <div id="pane-settings" class="hidden">
+              <h3 class="font-semibold text-slate-700 mb-5" style="font-size:1.05rem">ตั้งค่าระบบ</h3>
+              <div class="space-y-5">
+                <!-- Toggles -->
+                <div class="rounded-2xl border border-slate-200 divide-y divide-slate-200 overflow-hidden">
+                  <div class="flex items-center justify-between p-4">
+                    <div>
+                      <p class="font-medium text-slate-800" style="font-size:.95rem">เปิดรับการเสนอวาระ</p>
+                      <p style="font-size:.82rem;color:#94a3b8">ปิด = แสดง banner แจ้งผู้ใช้</p>
+                    </div>
+                    <div class="toggle-track on" onclick="toggleSetting('AcceptingSubmissions',this)" data-key="AcceptingSubmissions" data-value="TRUE">
+                      <div class="toggle-knob"></div>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between p-4">
+                    <div>
+                      <p class="font-medium text-slate-800" style="font-size:.95rem">รับไฟล์เอกสารแนบ</p>
+                      <p style="font-size:.82rem;color:#94a3b8">ปิด = ส่งแค่ฟอร์ม ไม่มีช่องแนบไฟล์</p>
+                    </div>
+                    <div class="toggle-track on" onclick="toggleSetting('FileUploadEnabled',this)" data-key="FileUploadEnabled" data-value="TRUE">
+                      <div class="toggle-knob"></div>
+                    </div>
+                  </div>
+                </div>
+                <!-- Fields -->
+                <div class="space-y-4" id="settingsForm"></div>
+                <button onclick="saveSettings()" class="btn btn-success">
+                  <i class="fa-solid fa-save"></i>บันทึกการตั้งค่า
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- Footer -->
+<footer class="text-center py-10 select-none" id="footerClickArea" style="color:#cbd5e1;font-size:.85rem">
+  <p>&copy; 2025 University Council Meeting System · สำนักงานสภามหาวิทยาลัย มธ.</p>
+</footer>
+
+<!-- Additional Doc Modal -->
+<div id="addDocModal" class="hidden modal-overlay" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="modal-box">
+    <h3 class="font-semibold text-slate-800 mb-1" style="font-size:1.1rem">ส่งเอกสารเพิ่มเติม</h3>
+    <p style="font-size:.88rem;color:#94a3b8;margin-bottom:1rem">สำหรับรหัส <b id="addDocId" style="color:var(--primary-mid)"></b></p>
+    <input id="addDocUrl" class="form-input mb-5"
+           placeholder="วางลิงก์ไฟล์ เช่น Google Drive, OneDrive, Dropbox หรือ URL อื่น ๆ">
+    <div class="flex gap-3">
+      <button onclick="submitAdditionalDoc()" class="flex-1 btn btn-amber justify-center">
+        <i class="fa-solid fa-file-circle-plus"></i>ส่งเอกสาร
+      </button>
+      <button onclick="document.getElementById('addDocModal').classList.add('hidden')" class="btn btn-ghost">
+        ยกเลิก
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════════════════ -->
+<script>
+// GitHub Pages adapter: keeps existing google.script.run calls working outside Apps Script.
+(function () {
+  if (window.google && window.google.script && window.google.script.run) return;
+
+  const API_URL = window.GAS_WEB_APP_URL || new URLSearchParams(window.location.search).get('api') || '';
+  let seq = 0;
+
+  function callApi(fn, args, success, failure) {
+    if (!API_URL) {
+      const err = new Error('Missing GAS_WEB_APP_URL. Set it in config.js or pass ?api=WEB_APP_URL');
+      if (failure) failure(err);
+      else console.error(err);
+      return;
+    }
+
+    const cb = '__gasApiCallback_' + Date.now() + '_' + (++seq);
+    const script = document.createElement('script');
+    const timeout = setTimeout(() => {
+      cleanup();
+      const err = new Error('Request timed out');
+      if (failure) failure(err);
+      else console.error(err);
+    }, 30000);
+
+    function cleanup() {
+      clearTimeout(timeout);
+      delete window[cb];
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+
+    window[cb] = payload => {
+      cleanup();
+      if (payload && payload.ok) {
+        if (success) success(payload.result);
+      } else {
+        const err = new Error((payload && payload.error) || 'Apps Script API error');
+        if (failure) failure(err);
+        else console.error(err);
+      }
+    };
+
+    const url = new URL(API_URL);
+    url.searchParams.set('api', '1');
+    url.searchParams.set('fn', fn);
+    url.searchParams.set('args', JSON.stringify(args || []));
+    url.searchParams.set('callback', cb);
+    script.onerror = () => {
+      cleanup();
+      const err = new Error('Unable to load Apps Script API');
+      if (failure) failure(err);
+      else console.error(err);
+    };
+    script.src = url.toString();
+    document.head.appendChild(script);
+  }
+
+  function runner(success, failure) {
+    const state = { success: success || null, failure: failure || null };
+    return new Proxy({}, {
+      get(_, prop) {
+        if (prop === 'withSuccessHandler') return fn => runner(fn, state.failure);
+        if (prop === 'withFailureHandler') return fn => runner(state.success, fn);
+        return (...args) => callApi(prop, args, state.success, state.failure);
+      }
+    });
+  }
+
+  window.google = { script: { run: runner() } };
+})();
+
+// ── Globals ───────────────────────────────────────────────────────
+let adminToken       = null;
+let cachedInfo       = {};
+let statusSearchData = null;
+let footerClicks     = 0;
+
+// ── ลำดับขั้นการเสนอ (6 ขั้นตอน) ────────────────────────────────
+const STATUS_STEPS = [
+  { key: 'รอตรวจสอบ',    label: 'รอตรวจสอบ' },
+  { key: 'ได้รับเรื่องแล้ว', label: 'ได้รับเรื่องแล้ว' },
+  { key: 'เลขานุการ',    label: 'เสนอเลขานุการพิจารณา' },
+  { key: 'อธิการบดี',    label: 'เสนออธิการบดีพิจารณา' },
+  { key: 'จัดส่ง',       label: 'จัดส่งเอกสารคืน/รอ 5 ชุด' },
+  { key: '5 ชุดแล้ว',    label: 'ได้รับเอกสาร 5 ชุดแล้ว' },
+];
+
+const STATUS_OPTIONS = [
+  'รอตรวจสอบ',
+  'ได้รับเรื่องแล้ว',
+  'อยู่ระหว่างการเสนอเลขานุการพิจารณา',
+  'อยู่ระหว่างการเสนออธิการบดีพิจารณา',
+  'จัดส่งเอกสารฉบับจริงคืนส่วนงาน/รอส่วนงานจัดส่งเอกสาร 5 ชุด',
+  'ได้รับเอกสาร 5 ชุดแล้ว',
+];
+
+const SETTINGS_FIELDS = [
+  { key:'CurrentRound',       label:'ครั้งที่ประชุม (ปัจจุบัน)' },
+  { key:'NextRound',          label:'ครั้งที่ประชุม (ถัดไป)' },
+  { key:'CurrentDeadline',    label:'วันปิดรับในระบบ (ปัจจุบัน)' },
+  { key:'NextDeadline',       label:'วันปิดรับในระบบ (ถัดไป)' },
+  { key:'ApproveDate',        label:'วันส่งเอกสารฉบับจริง' },
+  { key:'PaperCopies',        label:'ข้อมูลการส่งเอกสาร 5 ชุด' },
+  { key:'MeetingCalendar',    label:'ลิงก์ปฏิทินการประชุม' },
+  { key:'MeetingSummaryForm', label:'ลิงก์ไฟล์ปะหน้า/สรุป' },
+];
+
+// ── Init ──────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  addField('consider');
+  if (SHOW_ADMIN_MODE === 'true') revealAdminTab();
+
+  document.getElementById('footerClickArea').addEventListener('click', () => {
+    if (++footerClicks >= 5) { footerClicks = 0; revealAdminTab(); }
+  });
+  document.addEventListener('keydown', e => {
+    if (e.ctrlKey && e.shiftKey && e.key === 'A') { e.preventDefault(); revealAdminTab(); }
+  });
+
+  const loadStart = Date.now();
+  loadInfo(() => {
+    const elapsed = Date.now() - loadStart;
+    const delay   = Math.max(0, 1200 - elapsed);
+    setTimeout(() => {
+      document.getElementById('loadingScreen').classList.add('hide');
+    }, delay);
+  });
+});
+
+// ── Section ────────────────────────────────────────────────────────
+function showSection(name, btn) {
+  ['Form','Status','Admin'].forEach(s => {
+    const el = document.getElementById('section' + s);
+    el.classList.add('hidden'); el.classList.remove('fade-in');
+  });
+  const target = document.getElementById('section' + name.charAt(0).toUpperCase() + name.slice(1));
+  target.classList.remove('hidden');
+  requestAnimationFrame(() => target.classList.add('fade-in'));
+  document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ── Load Info ──────────────────────────────────────────────────────
+function loadInfo(callback) {
+  google.script.run
+    .withSuccessHandler(info => {
+      cachedInfo = info || {};
+      renderInfoCard(info);
+      renderRoundSelector(info);
+      updateFileUpload(info);
+      if (info.AcceptingSubmissions === 'FALSE') {
+        document.getElementById('systemClosedBanner').classList.remove('hidden');
+      }
+      if (adminToken) updateSettingsPane(info);
+      if (callback) callback();
+    })
+    .withFailureHandler(() => { if (callback) callback(); })
+    .getAdminInfo();
+}
+
+function renderInfoCard(info) {
+  if (!info) return;
+  const calLink = info.MeetingCalendar
+    ? `<a href="${info.MeetingCalendar}" target="_blank" style="color:var(--primary-mid);font-weight:600" class="hover:underline">คลิกดูปฏิทิน <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i></a>` : '—';
+  const sumLink = info.MeetingSummaryForm
+    ? `<a href="${info.MeetingSummaryForm}" target="_blank" style="color:var(--primary-mid);font-weight:600" class="hover:underline">ดาวน์โหลด <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i></a>` : '—';
+
+  document.getElementById('infoCardContent').innerHTML = `
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-1">
+      <div>
+        <div class="info-row">
+          <span class="info-row-key"><i class="fa-solid fa-hashtag mr-1.5" style="color:var(--primary-light)"></i>ครั้งที่</span>
+          <span class="info-row-val" style="font-size:1.1rem;color:var(--primary-dark)">${info.CurrentRound || '—'}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-row-key"><i class="fa-regular fa-calendar mr-1.5" style="color:var(--primary-light)"></i>ปฏิทิน</span>
+          <span class="info-row-val">${calLink}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-row-key"><i class="fa-solid fa-file mr-1.5" style="color:var(--primary-light)"></i>ปะหน้า</span>
+          <span class="info-row-val">${sumLink}</span>
+        </div>
+      </div>
+      <div class="rounded-2xl p-4 space-y-3 border mt-2 md:mt-0" style="background:var(--primary-pale);border-color:var(--primary-border)">
+        <div>
+          <p style="font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--primary-mid);font-weight:600">วันปิดรับในระบบ</p>
+          <p class="font-semibold text-red-600 mt-0.5" style="font-size:.95rem"><i class="fa-solid fa-clock mr-1.5"></i>${info.CurrentDeadline || '—'}</p>
+        </div>
+        <div class="border-t pt-2.5" style="border-color:var(--primary-border)">
+          <p style="font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--primary-mid);font-weight:600">วันส่งเอกสารฉบับจริง</p>
+          <p class="text-slate-700 font-medium mt-0.5" style="font-size:.92rem"><i class="fa-solid fa-box-open mr-1.5" style="color:var(--primary-light)"></i>${info.ApproveDate || '—'}</p>
+        </div>
+        <div class="border-t pt-2.5" style="border-color:var(--primary-border);font-size:.88rem;color:#475569">${info.PaperCopies || ''}</div>
+      </div>
+    </div>`;
+
+  document.getElementById('meetingDisplay').textContent = info.CurrentRound || '—';
+}
+
+function renderRoundSelector(info) {
+  const rounds = [];
+  if (info.CurrentRound) rounds.push({ val: info.CurrentRound, label: `${info.CurrentRound}  (รอบนี้)` });
+  if (info.NextRound)    rounds.push({ val: info.NextRound,    label: `${info.NextRound}  (ล่วงหน้า)` });
+
+  document.getElementById('roundSelector').innerHTML = rounds
+    .map((r,i) => `<div class="round-chip ${i===0?'selected':''}" onclick="selectRound(this,'${r.val}')">${r.label}</div>`)
+    .join('');
+  if (rounds.length > 0) document.getElementById('selectedRound').value = rounds[0].val;
+}
+
+function selectRound(el, val) {
+  document.querySelectorAll('.round-chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('selectedRound').value = val;
+}
+
+function updateFileUpload(info) {
+  document.getElementById('fileUrlArea').classList.toggle('hidden', info && info.FileUploadEnabled === 'FALSE');
+}
+
+// ── Topic Field ────────────────────────────────────────────────────
+function addField(section) {
+  const container = document.getElementById(section);
+  const div = document.createElement('div');
+  div.className = 'topic-chip';
+  div.innerHTML = `
+    <span style="color:#cbd5e1;margin-top:2px"><i class="fa-solid fa-angle-right text-sm"></i></span>
+    <input name="${section}" class="form-input flex-1" style="padding:.6rem .9rem" placeholder="หัวข้อวาระ...">
+    <button type="button" class="remove-btn" onclick="this.closest('.topic-chip').remove()">
+      <i class="fa-solid fa-xmark"></i>
+    </button>`;
+  container.appendChild(div);
+  div.querySelector('input').focus();
+}
+
+// ── Form Submit ────────────────────────────────────────────────────
+document.getElementById('mainForm').addEventListener('submit', e => {
+  e.preventDefault();
+
+  const phone = e.target.phone.value.replace(/\D/g,'');
+  if (phone.length < 4) {
+    return Swal.fire({ icon:'warning', title:'เบอร์โทรไม่ถูกต้อง', text:'กรุณากรอกเบอร์ให้ครบ', confirmButtonColor:'var(--primary-mid)' });
+  }
+
+  const fd   = new FormData(e.target);
+  const data = {};
+  ['consider','acknowledge','secret','other'].forEach(f => {
+    data[f] = fd.getAll(f).filter(x => x.trim()); fd.delete(f);
+  });
+  for (const [k,v] of fd.entries()) data[k] = v;
+
+  const total = ['consider','acknowledge','secret','other'].reduce((n,k) => n+(data[k]||[]).length, 0);
+  if (total === 0) {
+    return Swal.fire({ icon:'warning', title:'ยังไม่มีวาระ', text:'กรุณาเพิ่มอย่างน้อย 1 วาระ', confirmButtonColor:'var(--primary-mid)' });
+  }
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>กำลังส่งข้อมูล...';
+
+  google.script.run
+    .withSuccessHandler(tid => {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i>ยืนยันการส่งข้อมูล';
+      confetti({ particleCount: 160, spread: 75, origin:{ y:.6 } });
+
+      const short = tid.split('-').pop();
+      Swal.fire({
+        title:'ส่งข้อมูลสำเร็จ!',
+        html:`<div style="padding:.5rem 0">
+          <p style="color:#64748b;font-size:.95rem;margin-bottom:.75rem">รหัสติดตามของท่าน</p>
+          <div style="background:var(--primary-pale);border-radius:1rem;padding:1.25rem 1.5rem;margin-bottom:.75rem;border:1px solid var(--primary-border)">
+            <p style="font-size:2rem;font-weight:700;color:var(--primary-mid);letter-spacing:.2em;font-family:monospace">${tid}</p>
+            <p style="font-size:.82rem;color:#94a3b8;margin-top:.3rem">4 ตัวหลัง: <b style="color:#475569">${short}</b></p>
+          </div>
+          <p style="color:#dc2626;font-size:.88rem;font-weight:600">⚠ กรุณาจดจำรหัสนี้ไว้ตรวจสอบสถานะ</p>
+          ${data.email ? `<p style="color:#94a3b8;font-size:.82rem;margin-top:.4rem">ส่งยืนยันไปที่ ${data.email} แล้ว</p>` : ''}
+        </div>`,
+        icon:'success', confirmButtonText:'ตกลง', confirmButtonColor:'var(--primary-mid)'
+      });
+
+      e.target.reset();
+      ['consider','acknowledge','secret','other'].forEach(id => document.getElementById(id).innerHTML='');
+      addField('consider');
+    })
+    .withFailureHandler(err => {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i>ยืนยันการส่งข้อมูล';
+      Swal.fire({ icon:'error', title:'เกิดข้อผิดพลาด', text:err.message, confirmButtonColor:'#dc2626' });
+    })
+    .submitForm(data);
+});
+
+// ── Status Check ───────────────────────────────────────────────────
+document.getElementById('checkForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const tid   = e.target.trackingId.value.trim();
+  const phone = e.target.phone.value.trim();
+  if (!tid || !phone) return;
+
+  statusSearchData = { tid, phone };
+  const btn = document.getElementById('checkBtn');
+  btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>กำลังค้นหา...';
+
+  google.script.run
+    .withSuccessHandler(results => {
+      btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i>ค้นหา';
+      renderStatusResults(results);
+    })
+    .withFailureHandler(err => {
+      btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i>ค้นหา';
+      Swal.fire({ icon:'error', title:'เกิดข้อผิดพลาด', text:err.message, confirmButtonColor:'#dc2626' });
+    })
+    .checkStatus(tid, phone);
+});
+
+function resetStatus() {
+  document.getElementById('checkForm').reset();
+  document.getElementById('statusResult').innerHTML = `
+    <div class="text-center py-14" style="color:#cbd5e1">
+      <i class="fa-regular fa-folder-open text-5xl block mb-3"></i>
+      <p style="font-size:1rem">กรอกรหัสและเบอร์โทรด้านบนเพื่อค้นหา</p>
+    </div>`;
+  statusSearchData = null;
+}
+
+function refreshStatus() {
+  if (!statusSearchData) return;
+  google.script.run.withSuccessHandler(renderStatusResults).checkStatus(statusSearchData.tid, statusSearchData.phone);
+}
+
+function renderStatusResults(results) {
+  const div = document.getElementById('statusResult');
+  if (!results || results.length === 0) {
+    div.innerHTML = `
+      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:1rem;padding:1.5rem;text-align:center;color:#dc2626">
+        <i class="fa-solid fa-circle-xmark" style="font-size:2rem;margin-bottom:.5rem;display:block"></i>
+        <p style="font-size:.95rem">ไม่พบข้อมูล กรุณาตรวจสอบรหัสและเบอร์โทร</p>
+      </div>`;
+    return;
+  }
+
+  div.innerHTML = results.map((r,ri) => `
+    <div class="result-card stagger-in" style="animation-delay:${ri*.08}s">
+      <div style="background:linear-gradient(135deg,var(--primary-dark),var(--primary-mid));color:#fff;padding:1rem 1.4rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem">
+        <div>
+          <p style="font-size:.7rem;opacity:.6;text-transform:uppercase;letter-spacing:.08em">รหัสเอกสาร</p>
+          <p style="font-size:1.35rem;font-weight:700;font-family:monospace;letter-spacing:.12em">${r.trackingId}
+            <button onclick="navigator.clipboard.writeText('${r.trackingId}');Swal.fire({icon:'success',title:'คัดลอกแล้ว',timer:800,showConfirmButton:false})"
+              style="margin-left:.5rem;font-size:.7rem;background:rgba(255,255,255,.2);border:none;color:#fff;padding:.2rem .6rem;border-radius:.4rem;cursor:pointer">
+              คัดลอก
+            </button>
+          </p>
+        </div>
+        <div style="text-align:right;opacity:.85">
+          <p style="font-size:.9rem">รอบที่ ${r.meetingRound || '—'}</p>
+          <p style="font-size:.75rem;opacity:.6">${r.department || ''}</p>
+        </div>
+      </div>
+
+      <div style="padding:1.25rem 1.4rem">
+        ${r.topics.map((t,idx) => `
+          <div class="topic-item mb-3">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem;margin-bottom:.75rem">
+              <p style="font-size:.98rem;font-weight:500;color:#1e293b">${idx+1}. ${t.topic}</p>
+              <span class="tag ${typeTagClass(t.type)}" style="flex-shrink:0">${t.type}</span>
+            </div>
+
+            ${renderStepper(t.status)}
+
+            ${t.adminNote ? `
+              <div style="margin-top:.85rem;background:#fffbeb;border:1px solid #fde68a;border-radius:.75rem;padding:.7rem .9rem;font-size:.88rem;color:#92400e">
+                <i class="fa-solid fa-comment-dots mr-1.5"></i><b>หมายเหตุจากผู้ดูแล:</b> ${t.adminNote}
+              </div>` : ''}
+
+            ${t.fileUrl ? `
+              <div style="margin-top:.6rem">
+                <a href="${t.fileUrl}" target="_blank" style="font-size:.85rem;color:var(--primary-mid);text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+                  <i class="fa-solid fa-file-arrow-down mr-1"></i>ไฟล์แนบ
+                </a>
+              </div>` : ''}
+
+            ${(t.additionalDocs||[]).length > 0 ? `
+              <div style="margin-top:.4rem">
+                ${t.additionalDocs.map((d,i) => `
+                  <a href="${d.url}" target="_blank" style="display:flex;align-items:center;gap:.4rem;font-size:.83rem;color:var(--primary-mid);text-decoration:none;margin-top:.25rem">
+                    <i class="fa-solid fa-paperclip" style="font-size:.75rem"></i>เอกสารเพิ่มเติม ${i+1}
+                  </a>`).join('')}
+              </div>` : ''}
+
+            <button onclick="openAddDocModal('${r.trackingId}')"
+              class="btn btn-ghost btn-sm" style="margin-top:.85rem;color:#d97706;font-size:.85rem">
+              <i class="fa-solid fa-file-circle-plus"></i>ส่งเอกสารเพิ่มเติม
+            </button>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── Stepper Renderer ───────────────────────────────────────────────
+function renderStepper(status) {
+  // Map status string → step index
+  let cur = 0;
+  if (!status || status === 'รอตรวจสอบ') {
+    cur = 0;
+  } else if (status.includes('ได้รับเรื่องแล้ว')) {
+    cur = 1;
+  } else if (status.includes('เลขานุการ')) {
+    cur = 2;
+  } else if (status.includes('อธิการบดี')) {
+    cur = 3;
+  } else if (status.includes('จัดส่ง') || status.includes('5 ชุด') && !status.includes('ได้รับเอกสาร')) {
+    cur = 4;
+  } else if (status.includes('ได้รับเอกสาร 5 ชุดแล้ว')) {
+    cur = 5;
+  }
+
+  const dots = STATUS_STEPS.map((s, i) => {
+    const cls  = i < cur ? 'done' : i === cur ? 'current' : 'pending';
+    const icon = i < cur ? '<i class="fa-solid fa-check" style="font-size:10px"></i>' : i + 1;
+    const labelColor = i === cur ? 'var(--primary-mid)' : '#94a3b8';
+    const labelWeight = i === cur ? '600' : '400';
+    return `
+      <div style="display:flex;flex-direction:column;align-items:center;flex:1">
+        <div class="step-dot ${cls}">${icon}</div>
+        <p style="font-size:.68rem;margin-top:.35rem;text-align:center;line-height:1.35;color:${labelColor};font-weight:${labelWeight};word-break:keep-all;padding:0 2px">${s.label}</p>
+      </div>`;
+  }).join('');
+
+  const isLast = cur === STATUS_STEPS.length - 1;
+  const label  = isLast
+    ? '<span style="color:#16a34a">📦 ได้รับเอกสาร 5 ชุด เรียบร้อยแล้ว</span>'
+    : `<span style="color:var(--primary-mid)">⏳ อยู่ระหว่าง${STATUS_STEPS[cur].label}</span>`;
+
+  return `
+    <div>
+      <div style="display:flex;align-items:flex-start;gap:4px;margin-bottom:.3rem">${dots}</div>
+      <!-- Progress bar -->
+      <div style="height:4px;background:#e2e8f0;border-radius:2px;margin:.5rem 0">
+        <div style="height:4px;border-radius:2px;background:linear-gradient(90deg,#16a34a,var(--primary-mid));width:${Math.round((cur/(STATUS_STEPS.length-1))*100)}%;transition:width .6s ease"></div>
+      </div>
+      <p style="font-size:.88rem;font-weight:600;text-align:center;margin-top:.4rem">${label}</p>
+    </div>`;
+}
+
+function typeTagClass(type) {
+  if (!type) return 'tag-gray';
+  if (type.includes('พิจารณา')) return 'tag-teal';
+  if (type.includes('ทราบ'))   return 'tag-green';
+  if (type.includes('ลับ'))    return 'tag-red';
+  return 'tag-gray';
+}
+
+// ── Additional Doc ─────────────────────────────────────────────────
+let _addDocTid = '';
+function openAddDocModal(tid) {
+  _addDocTid = tid;
+  document.getElementById('addDocId').textContent = tid;
+  document.getElementById('addDocUrl').value = '';
+  document.getElementById('addDocModal').classList.remove('hidden');
+}
+function submitAdditionalDoc() {
+  const url   = document.getElementById('addDocUrl').value.trim();
+  const phone = statusSearchData?.phone || '';
+  if (!url) return Swal.fire({ icon:'warning', title:'กรุณากรอก URL', confirmButtonColor:'#d97706' });
+
+  google.script.run
+    .withSuccessHandler(() => {
+      document.getElementById('addDocModal').classList.add('hidden');
+      Swal.fire({ icon:'success', title:'ส่งเอกสารแล้ว', timer:1500, showConfirmButton:false });
+      setTimeout(refreshStatus, 900);
+    })
+    .withFailureHandler(err => Swal.fire({ icon:'error', title:'เกิดข้อผิดพลาด', text:err.message, confirmButtonColor:'#dc2626' }))
+    .submitAdditionalDoc(_addDocTid, phone, url);
+}
+
+// ── Admin ──────────────────────────────────────────────────────────
+function revealAdminTab() {
+  const tab = document.getElementById('adminTab');
+  if (tab.classList.contains('hidden')) {
+    tab.classList.remove('hidden');
+    Swal.fire({ toast:true, position:'top-end', icon:'info', title:'โหมดผู้ดูแลพร้อมแล้ว', timer:2200, showConfirmButton:false });
+  }
+}
+
+function loginAdmin() {
+  const u = document.getElementById('adminUser').value;
+  const p = document.getElementById('adminPass').value;
+  if (!u || !p) return;
+
+  const btn = document.querySelector('#adminLoginBox button');
+  btn.disabled = true; btn.textContent = 'กำลังตรวจสอบ...';
+
+  google.script.run
+    .withSuccessHandler(token => {
+      btn.disabled = false; btn.textContent = 'เข้าสู่ระบบ';
+      if (!token) return Swal.fire({ icon:'error', title:'เข้าสู่ระบบไม่สำเร็จ', text:'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', confirmButtonColor:'#dc2626' });
+      adminToken = token;
+      document.getElementById('adminLoginBox').classList.add('hidden');
+      document.getElementById('adminPanel').classList.remove('hidden');
+      loadDashboard(); loadInfo();
+    })
+    .withFailureHandler(err => { btn.disabled=false; btn.textContent='เข้าสู่ระบบ'; Swal.fire({icon:'error',title:'Error',text:err.message}); })
+    .adminLogin(u, p);
+}
+
+function doLogout() {
+  Swal.fire({ title:'ออกจากระบบ?', icon:'question', showCancelButton:true, confirmButtonColor:'#dc2626', confirmButtonText:'ออก', cancelButtonText:'ยกเลิก' })
+    .then(r => {
+      if (!r.isConfirmed) return;
+      google.script.run.adminLogout(adminToken);
+      adminToken = null;
+      document.getElementById('adminPanel').classList.add('hidden');
+      document.getElementById('adminLoginBox').classList.remove('hidden');
+      document.getElementById('adminUser').value = '';
+      document.getElementById('adminPass').value = '';
+      showSection('form', document.querySelector('.nav-tab'));
+    });
+}
+
+function showAdminPane(name) {
+  ['dashboard','submissions','settings'].forEach(p => {
+    document.getElementById('pane-'+p).classList.add('hidden');
+    document.getElementById('pane-btn-'+p).classList.remove('active');
+  });
+  document.getElementById('pane-'+name).classList.remove('hidden');
+  document.getElementById('pane-btn-'+name).classList.add('active');
+  if (name === 'submissions') loadSubmissions();
+  if (name === 'settings')    loadInfo();
+}
+
+function loadDashboard() {
+  google.script.run.withSuccessHandler(d => {
+    document.getElementById('ds-total').textContent      = d.total;
+    document.getElementById('ds-pending').textContent    = d.pending;
+    document.getElementById('ds-inprogress').textContent = d.inprogress;
+    document.getElementById('ds-done').textContent       = d.done;
+  }).getDashboardStats(adminToken);
+}
+
+function loadSubmissions() {
+  const round = document.getElementById('filterRound').value;
+  const list  = document.getElementById('submissionList');
+  list.innerHTML = `<p class="text-center py-10" style="color:#94a3b8"><i class="fa-solid fa-spinner fa-spin mr-2"></i>กำลังโหลด...</p>`;
+
+  google.script.run.withSuccessHandler(rows => {
+    if (!rows || !rows.length) { list.innerHTML = `<p class="text-center py-10" style="color:#94a3b8;font-size:.95rem">ไม่มีข้อมูล</p>`; return; }
+
+    const rounds = [...new Set(rows.map(r=>r.meetingRound).filter(Boolean))].sort();
+    const sel = document.getElementById('filterRound');
+    const cur = sel.value;
+    sel.innerHTML = '<option value="all">ทุกรอบ</option>' + rounds.map(r=>`<option value="${r}">${r}</option>`).join('');
+    sel.value = cur;
+
+    list.innerHTML = rows.map(row => `
+      <div style="border:1px solid #e2e8f0;border-radius:1rem;overflow:hidden;transition:box-shadow .2s" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,.08)'" onmouseout="this.style.boxShadow='none'">
+        <div style="background:#f8fafc;padding:.65rem 1rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;font-size:.85rem;color:#64748b;border-bottom:1px solid #f1f5f9">
+          <span style="font-family:monospace;font-weight:600;color:#334155">${row.trackingId}</span>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+            <span>${row.name}</span>
+            <span style="color:#94a3b8">${row.department}</span>
+            <span class="tag tag-teal" style="font-size:.72rem">${row.meetingRound}</span>
+            <span class="tag ${typeTagClass(row.type)}" style="font-size:.72rem">${row.type}</span>
+          </div>
+        </div>
+        <div style="padding:1rem">
+          <p style="font-size:.95rem;color:#1e293b;margin-bottom:.85rem">${row.topic}</p>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem">
+            <select id="status-${row.rowId}" class="form-input" style="padding:.5rem .75rem;font-size:.85rem;flex:1;min-width:200px">
+              ${STATUS_OPTIONS.map(s=>`<option value="${s}" ${row.status===s?'selected':''}>${s}</option>`).join('')}
+            </select>
+            <button onclick="changeStatus('${row.rowId}')" class="btn btn-primary btn-sm" style="white-space:nowrap">
+              <i class="fa-solid fa-check"></i>อัปเดต
+            </button>
+          </div>
+          <div style="display:flex;gap:.5rem">
+            <input id="note-${row.rowId}" class="form-input" style="padding:.5rem .75rem;font-size:.85rem;flex:1"
+                   placeholder="หมายเหตุจากผู้ดูแล (แสดงให้ผู้ส่งเห็น)..." value="${row.adminNote||''}">
+            <button onclick="saveNote('${row.rowId}')" class="btn btn-amber btn-sm" style="white-space:nowrap">
+              <i class="fa-solid fa-comment-dots"></i>บันทึก
+            </button>
+          </div>
+          ${row.fileUrl ? `<a href="${row.fileUrl}" target="_blank" style="display:inline-block;margin-top:.5rem;font-size:.82rem;color:var(--primary-mid)">
+            <i class="fa-solid fa-file-arrow-down mr-1"></i>ไฟล์แนบ</a>` : ''}
+          ${row.email ? `<p style="font-size:.78rem;color:#94a3b8;margin-top:.35rem"><i class="fa-solid fa-envelope mr-1"></i>${row.email}</p>` : ''}
+        </div>
+      </div>`).join('');
+  }).getAllSubmissions(adminToken, round);
+}
+
+function changeStatus(rowId) {
+  google.script.run
+    .withSuccessHandler(() => Swal.fire({icon:'success',title:'อัปเดตแล้ว',timer:1000,showConfirmButton:false}))
+    .withFailureHandler(err => Swal.fire({icon:'error',title:'Error',text:err.message,confirmButtonColor:'#dc2626'}))
+    .updateStatus(rowId, document.getElementById('status-'+rowId).value, adminToken);
+}
+function saveNote(rowId) {
+  google.script.run
+    .withSuccessHandler(() => Swal.fire({icon:'success',title:'บันทึกหมายเหตุแล้ว',timer:1000,showConfirmButton:false}))
+    .withFailureHandler(err => Swal.fire({icon:'error',title:'Error',text:err.message,confirmButtonColor:'#dc2626'}))
+    .updateAdminNote(rowId, document.getElementById('note-'+rowId).value, adminToken);
+}
+
+// ── Settings ───────────────────────────────────────────────────────
+function updateSettingsPane(info) {
+  document.getElementById('settingsForm').innerHTML = SETTINGS_FIELDS.map(f => `
+    <div>
+      <label class="form-label">${f.label}</label>
+      <input id="sf-${f.key}" class="form-input" value="${info[f.key]||''}">
+    </div>`).join('');
+
+  ['AcceptingSubmissions','FileUploadEnabled'].forEach(key => {
+    const el = document.querySelector(`.toggle-track[data-key="${key}"]`);
+    if (!el) return;
+    _setToggle(el, info[key] !== 'FALSE');
+  });
+}
+
+function toggleSetting(key, el) { _setToggle(el, el.dataset.value !== 'TRUE'); }
+
+function _setToggle(el, on) {
+  el.classList.toggle('on', on);
+  el.dataset.value = on ? 'TRUE' : 'FALSE';
+}
+
+function saveSettings() {
+  if (!adminToken) return;
+  const newData = {};
+  SETTINGS_FIELDS.forEach(f => { const el = document.getElementById('sf-'+f.key); if (el) newData[f.key] = el.value; });
+  document.querySelectorAll('.toggle-track').forEach(el => { newData[el.dataset.key] = el.dataset.value || 'TRUE'; });
+
+  google.script.run
+    .withSuccessHandler(() => { Swal.fire({icon:'success',title:'บันทึกแล้ว',text:'อัปเดตเรียบร้อย',confirmButtonColor:'var(--primary-mid)'}); loadInfo(); })
+    .withFailureHandler(err => Swal.fire({icon:'error',title:'Error',text:err.message,confirmButtonColor:'#dc2626'}))
+    .saveAdminInfo(newData, adminToken);
+}
+</script>
+
+</body>
+</html>
