@@ -320,12 +320,8 @@ body {
 @keyframes shimmer { to{background-position:-200% 0} }
 
 /* ── Header teal blob accents ────────────────────────────────── */
-.header-blob-1 {
-  background: radial-gradient(circle, #2dd4bf, transparent);
-}
-.header-blob-2 {
-  background: radial-gradient(circle, #99f6e4, transparent);
-}
+.header-blob-1 { background: radial-gradient(circle, #2dd4bf, transparent); }
+.header-blob-2 { background: radial-gradient(circle, #99f6e4, transparent); }
 </style>
 </head>
 <body>
@@ -354,7 +350,6 @@ const SHOW_ADMIN_MODE = new URLSearchParams(window.location.search).get('admin')
 ══════════════════════════════════════════════ -->
 <header class="relative overflow-hidden pt-12 pb-28 px-4 text-white"
         style="background:linear-gradient(135deg,#0a2e2a 0%,#134e4a 45%,#0f766e 100%)">
-  <!-- Decorative blobs -->
   <div class="header-blob-1 absolute top-0 right-0 w-72 h-72 rounded-full opacity-10 pointer-events-none"
        style="transform:translate(30%,-30%)"></div>
   <div class="header-blob-2 absolute bottom-0 left-0 w-56 h-56 rounded-full opacity-10 pointer-events-none"
@@ -680,7 +675,6 @@ const SHOW_ADMIN_MODE = new URLSearchParams(window.location.search).get('admin')
             <div id="pane-settings" class="hidden">
               <h3 class="font-semibold text-slate-700 mb-5" style="font-size:1.05rem">ตั้งค่าระบบ</h3>
               <div class="space-y-5">
-                <!-- Toggles -->
                 <div class="rounded-2xl border border-slate-200 divide-y divide-slate-200 overflow-hidden">
                   <div class="flex items-center justify-between p-4">
                     <div>
@@ -701,7 +695,6 @@ const SHOW_ADMIN_MODE = new URLSearchParams(window.location.search).get('admin')
                     </div>
                   </div>
                 </div>
-                <!-- Fields -->
                 <div class="space-y-4" id="settingsForm"></div>
                 <button onclick="saveSettings()" class="btn btn-success">
                   <i class="fa-solid fa-save"></i>บันทึกการตั้งค่า
@@ -744,64 +737,53 @@ const SHOW_ADMIN_MODE = new URLSearchParams(window.location.search).get('admin')
      JAVASCRIPT
 ══════════════════════════════════════════════ -->
 <script>
-// GitHub Pages adapter: keeps existing google.script.run calls working outside Apps Script.
+// ════════════════════════════════════════════════════════════════
+// API ADAPTER — fetch() แทน JSONP
+// แก้ปัญหา: login หลายบัญชี Google → JSONP ถูก redirect → ค้าง
+// ════════════════════════════════════════════════════════════════
 (function () {
   if (window.google && window.google.script && window.google.script.run) return;
 
   const API_URL = window.GAS_WEB_APP_URL || new URLSearchParams(window.location.search).get('api') || '';
-  let seq = 0;
 
   function callApi(fn, args, success, failure) {
     if (!API_URL) {
-      const err = new Error('Missing GAS_WEB_APP_URL. Set it in config.js or pass ?api=WEB_APP_URL');
-      if (failure) failure(err);
-      else console.error(err);
+      const err = new Error('Missing GAS_WEB_APP_URL — กรุณาตั้งค่าใน config.js');
+      if (failure) failure(err); else console.error(err);
       return;
     }
-
-    const cb = '__gasApiCallback_' + Date.now() + '_' + (++seq);
-    const script = document.createElement('script');
-    const timeout = setTimeout(() => {
-      cleanup();
-      const err = new Error('Request timed out');
-      if (failure) failure(err);
-      else console.error(err);
-    }, 30000);
-
-    function cleanup() {
-      clearTimeout(timeout);
-      delete window[cb];
-      if (script.parentNode) script.parentNode.removeChild(script);
-    }
-
-    window[cb] = payload => {
-      cleanup();
-      if (payload && payload.ok) {
-        if (success) success(payload.result);
-      } else {
-        const err = new Error((payload && payload.error) || 'Apps Script API error');
-        if (failure) failure(err);
-        else console.error(err);
-      }
-    };
 
     const url = new URL(API_URL);
     url.searchParams.set('api', '1');
     url.searchParams.set('fn', fn);
     url.searchParams.set('args', JSON.stringify(args || []));
-    url.searchParams.set('callback', cb);
-    script.onerror = () => {
-      cleanup();
-      const err = new Error('Unable to load Apps Script API');
-      if (failure) failure(err);
-      else console.error(err);
-    };
-    script.src = url.toString();
-    document.head.appendChild(script);
+
+    // ใช้ fetch แทน script tag — ไม่มี multi-account redirect
+    fetch(url.toString(), {
+      method: 'GET',
+      redirect: 'follow',
+      // ไม่ส่ง credentials → Google ไม่ถาม login
+      credentials: 'omit'
+    })
+      .then(r => {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(payload => {
+        if (payload && payload.ok) {
+          if (success) success(payload.result);
+        } else {
+          const err = new Error((payload && payload.error) || 'Apps Script API error');
+          if (failure) failure(err); else console.error(err);
+        }
+      })
+      .catch(err => {
+        if (failure) failure(err); else console.error(err);
+      });
   }
 
-  function runner(success, failure) {
-    const state = { success: success || null, failure: failure || null };
+  function runner(successFn, failureFn) {
+    const state = { success: successFn || null, failure: failureFn || null };
     return new Proxy({}, {
       get(_, prop) {
         if (prop === 'withSuccessHandler') return fn => runner(fn, state.failure);
@@ -863,7 +845,14 @@ window.addEventListener('load', () => {
   });
 
   const loadStart = Date.now();
+
+  // ✅ Force-hide: ไม่ว่าจะเกิดอะไร loading จะปิดใน 10 วินาที
+  const forceHideTimer = setTimeout(() => {
+    document.getElementById('loadingScreen').classList.add('hide');
+  }, 10000);
+
   loadInfo(() => {
+    clearTimeout(forceHideTimer);
     const elapsed = Date.now() - loadStart;
     const delay   = Math.max(0, 1200 - elapsed);
     setTimeout(() => {
@@ -886,7 +875,9 @@ function showSection(name, btn) {
 }
 
 // ── Load Info ──────────────────────────────────────────────────────
-function loadInfo(callback) {
+function loadInfo(callback, retryCount) {
+  retryCount = retryCount || 0;
+
   google.script.run
     .withSuccessHandler(info => {
       cachedInfo = info || {};
@@ -899,7 +890,28 @@ function loadInfo(callback) {
       if (adminToken) updateSettingsPane(info);
       if (callback) callback();
     })
-    .withFailureHandler(() => { if (callback) callback(); })
+    .withFailureHandler(err => {
+      // ✅ retry อัตโนมัติ 2 ครั้ง ก่อนแสดง error
+      if (retryCount < 2) {
+        setTimeout(() => loadInfo(callback, retryCount + 1), 3000);
+        return;
+      }
+      // แสดง error พร้อมปุ่ม retry
+      document.getElementById('infoCardContent').innerHTML = `
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:.75rem;padding:1rem;font-size:.9rem">
+          <p style="color:#dc2626;font-weight:600;margin-bottom:.4rem">
+            <i class="fa-solid fa-triangle-exclamation mr-1.5"></i>โหลดข้อมูลไม่ได้
+          </p>
+          <p style="color:#64748b;font-size:.85rem;margin-bottom:.75rem">
+            หากใช้ Google หลายบัญชี ลองเปิดในโหมด Incognito หรือเปลี่ยน account ที่ active
+          </p>
+          <button onclick="location.reload()"
+                  class="btn btn-ghost btn-sm" style="font-size:.82rem">
+            <i class="fa-solid fa-rotate-right mr-1"></i>โหลดใหม่อีกครั้ง
+          </button>
+        </div>`;
+      if (callback) callback();
+    })
     .getAdminInfo();
 }
 
@@ -1146,7 +1158,6 @@ function renderStatusResults(results) {
 
 // ── Stepper Renderer ───────────────────────────────────────────────
 function renderStepper(status) {
-  // Map status string → step index
   let cur = 0;
   if (!status || status === 'รอตรวจสอบ') {
     cur = 0;
@@ -1156,7 +1167,7 @@ function renderStepper(status) {
     cur = 2;
   } else if (status.includes('อธิการบดี')) {
     cur = 3;
-  } else if (status.includes('จัดส่ง') || status.includes('5 ชุด') && !status.includes('ได้รับเอกสาร')) {
+  } else if (status.includes('จัดส่ง') || (status.includes('5 ชุด') && !status.includes('ได้รับเอกสาร'))) {
     cur = 4;
   } else if (status.includes('ได้รับเอกสาร 5 ชุดแล้ว')) {
     cur = 5;
@@ -1165,7 +1176,7 @@ function renderStepper(status) {
   const dots = STATUS_STEPS.map((s, i) => {
     const cls  = i < cur ? 'done' : i === cur ? 'current' : 'pending';
     const icon = i < cur ? '<i class="fa-solid fa-check" style="font-size:10px"></i>' : i + 1;
-    const labelColor = i === cur ? 'var(--primary-mid)' : '#94a3b8';
+    const labelColor  = i === cur ? 'var(--primary-mid)' : '#94a3b8';
     const labelWeight = i === cur ? '600' : '400';
     return `
       <div style="display:flex;flex-direction:column;align-items:center;flex:1">
@@ -1182,7 +1193,6 @@ function renderStepper(status) {
   return `
     <div>
       <div style="display:flex;align-items:flex-start;gap:4px;margin-bottom:.3rem">${dots}</div>
-      <!-- Progress bar -->
       <div style="height:4px;background:#e2e8f0;border-radius:2px;margin:.5rem 0">
         <div style="height:4px;border-radius:2px;background:linear-gradient(90deg,#16a34a,var(--primary-mid));width:${Math.round((cur/(STATUS_STEPS.length-1))*100)}%;transition:width .6s ease"></div>
       </div>
@@ -1247,7 +1257,10 @@ function loginAdmin() {
       document.getElementById('adminPanel').classList.remove('hidden');
       loadDashboard(); loadInfo();
     })
-    .withFailureHandler(err => { btn.disabled=false; btn.textContent='เข้าสู่ระบบ'; Swal.fire({icon:'error',title:'Error',text:err.message}); })
+    .withFailureHandler(err => {
+      btn.disabled = false; btn.textContent = 'เข้าสู่ระบบ';
+      Swal.fire({ icon:'error', title:'Error', text:err.message });
+    })
     .adminLogin(u, p);
 }
 
@@ -1291,7 +1304,10 @@ function loadSubmissions() {
   list.innerHTML = `<p class="text-center py-10" style="color:#94a3b8"><i class="fa-solid fa-spinner fa-spin mr-2"></i>กำลังโหลด...</p>`;
 
   google.script.run.withSuccessHandler(rows => {
-    if (!rows || !rows.length) { list.innerHTML = `<p class="text-center py-10" style="color:#94a3b8;font-size:.95rem">ไม่มีข้อมูล</p>`; return; }
+    if (!rows || !rows.length) {
+      list.innerHTML = `<p class="text-center py-10" style="color:#94a3b8;font-size:.95rem">ไม่มีข้อมูล</p>`;
+      return;
+    }
 
     const rounds = [...new Set(rows.map(r=>r.meetingRound).filter(Boolean))].sort();
     const sel = document.getElementById('filterRound');
@@ -1341,6 +1357,7 @@ function changeStatus(rowId) {
     .withFailureHandler(err => Swal.fire({icon:'error',title:'Error',text:err.message,confirmButtonColor:'#dc2626'}))
     .updateStatus(rowId, document.getElementById('status-'+rowId).value, adminToken);
 }
+
 function saveNote(rowId) {
   google.script.run
     .withSuccessHandler(() => Swal.fire({icon:'success',title:'บันทึกหมายเหตุแล้ว',timer:1000,showConfirmButton:false}))
@@ -1377,7 +1394,10 @@ function saveSettings() {
   document.querySelectorAll('.toggle-track').forEach(el => { newData[el.dataset.key] = el.dataset.value || 'TRUE'; });
 
   google.script.run
-    .withSuccessHandler(() => { Swal.fire({icon:'success',title:'บันทึกแล้ว',text:'อัปเดตเรียบร้อย',confirmButtonColor:'var(--primary-mid)'}); loadInfo(); })
+    .withSuccessHandler(() => {
+      Swal.fire({icon:'success',title:'บันทึกแล้ว',text:'อัปเดตเรียบร้อย',confirmButtonColor:'var(--primary-mid)'});
+      loadInfo();
+    })
     .withFailureHandler(err => Swal.fire({icon:'error',title:'Error',text:err.message,confirmButtonColor:'#dc2626'}))
     .saveAdminInfo(newData, adminToken);
 }
